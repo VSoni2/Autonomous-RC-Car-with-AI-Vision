@@ -33,19 +33,19 @@ A **Pololu multiplexer** ensures safe switching between manual and autonomous mo
 ## System Architecture
 
 ```mermaid
-graph TD
-    A[LiPo Battery (7.4 V)] --> B[ESC QuicRun 10BL60]
+graph LR
+    A[LiPo Battery 7.4V] --> B[ESC QuicRun 10BL60]
     B --> C[Brushless Motor 3650kV]
-    B --> D[BEC 6 V]
-    D --> E[RadioLink Receiver]
-    D --> F[Servo (via Pololu 2806)]
+    B --> D[BEC 6V]
+    D --> E[RadioLink R6FG Receiver]
+    D --> F[Steering Servo via Pololu 2806]
 
-    A --> G[DROK Buck 5.2 V]
+    A --> G[DROK Buck 5.2V]
     G --> H[Raspberry Pi Zero 2 W]
     H --> I[Pi Camera Module v3 (CSI)]
-    H --> J[7" HDMI Display (HDMI + USB)]
-    H --> K[MPU-6050 IMU (I²C)]
-    H --> L[VL53L1X ToF (I²C)]
+    H --> J[7-inch HDMI Display (HDMI + USB)]
+    H --> K[MPU-6050 IMU (I2C)]
+    H --> L[VL53L1X ToF (I2C)]
 
     A --> M[Inline Fuse + Master Switch]
 ```
