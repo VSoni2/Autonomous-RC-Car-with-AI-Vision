@@ -35,20 +35,27 @@ A **Pololu multiplexer** ensures safe switching between manual and autonomous mo
 
 ```mermaid
 flowchart LR
-    A[LiPo Battery 7.4V] --> B[ESC QuicRun 10BL60]
+    A[LiPo Battery 7.4V] --> N[Inline fuse and master switch]
+    N --> B[ESC QuicRun 10BL60]
+    N --> G[DROK Buck 5V 5A]
+
     B --> C[Brushless Motor 3650kV]
     B --> D[BEC 6V]
     D --> E[RadioLink R6FG Receiver]
-    D --> F[Steering Servo via Pololu 2806]
+    D --> P[Pololu 2806 Multiplexer]
 
-    A --> G[DROK Buck 5.2V]
-    G --> H[Raspberry Pi Zero 2W]
+    E -->|CH1 CH2 PWM| P
+    H -->|GPIO18 GPIO12 PWM| P
+    P -->|Steer PWM| F[Steering Servo]
+    P -->|Throttle PWM| B
+
+    G -->|5.15-5.20 V| H[Raspberry Pi 5 4GB]
     H --> I[Pi Camera Module v3]
     H --> J[7 inch HDMI Display]
+    G -->|USB power| J
+
     H --> K[MPU6050 IMU I2C]
     H --> L[VL53L1X ToF I2C]
-
-    A --> M[Inline Fuse and Master Switch]
 ```
 ---
 
