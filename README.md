@@ -9,7 +9,7 @@ A **Pololu multiplexer** ensures safe switching between manual and autonomous mo
 ## Hardware Components
 
 ### Core
-- Raspberry Pi Zero 2 W (onboard computer)
+- Raspberry Pi 5 (4 GB) (onboard computer)
 - Pi Camera Module v3 (vision)
 - 7" HDMI Display 1024x600 (UI / "face")
 - MPU-6050 (IMU: accelerometer + gyroscope)
@@ -24,7 +24,8 @@ A **Pololu multiplexer** ensures safe switching between manual and autonomous mo
 
 ### Power
 - 5200 mAh Zeee 80C 2S LiPo (7.4V, 38.38 Wh)
-- DROK 2203 Adjustable Buck Converter (8–22V → 5V for Pi)
+- **DROK Adjustable Buck** (6–32 V in → 1.5–32 V out, **5 V / 5 A**), LCD + **USB-A port**
+- **Compact 2S LiPo balance charger** (for charging via JST-XH balance plug)
 - Inline fuse (30–40 A) + Master power switch
 - XT60/Deans connectors + 14–18 AWG silicone wire
 
@@ -51,28 +52,29 @@ flowchart LR
 ```
 ---
 
-## Wiring Guide
+## 🔌 Wiring Guide
 
 ### Power
-- LiPo → ESC (main motor power)
-- LiPo → DROK Buck → Pi (5.2 V regulated)
-- ESC BEC → Receiver + Servo (through Pololu multiplexer)
+- LiPo → **Inline Fuse** → **Master Switch** → split to **ESC** and **DROK Buck**  
+- **DROK Buck (set 5.15–5.20 V)** → **Pi 5 5V/GND header** (short, thick leads; add 470–1000 µF low-ESR cap near Pi)
+- **DROK USB-A** → 7" HDMI display/touch **USB power** (optional)
+- ESC BEC (6 V) → **Receiver + Servo** (through Pololu 2806 outputs)
 
 ### Control Signals (via Pololu 2806)
-- **Receiver CH1 (Steering)** → Pololu IN A1
-- **Receiver CH2 (Throttle)** → Pololu IN A2
-- **Pi GPIO18 (Steering PWM)** → Pololu IN B1
-- **Pi GPIO12 (Throttle PWM)** → Pololu IN B2
+- **Receiver CH1 (Steering)** → Pololu **IN A1**
+- **Receiver CH2 (Throttle)** → Pololu **IN A2**
+- **Pi GPIO18 (Steering PWM)** → Pololu **IN B1**
+- **Pi GPIO12 (Throttle PWM)** → Pololu **IN B2**
 - **Pololu OUT1 → Servo** (steering)
 - **Pololu OUT2 → ESC** (throttle)
-- **Pololu Select Line** → spare channel on RadioLink (manual vs autonomous)
+- **Pololu Select Line** → spare switch channel on RadioLink (manual vs autonomous)
 
-### Raspberry Pi GPIO Pinout
+### Raspberry Pi 5 GPIO Pinout
 
 | Pi Pin # | GPIO # | Function     | Connected Device            |
 |----------|--------|-------------|-----------------------------|
 | 1        | 3.3V   | Power       | MPU-6050, VL53L1X           |
-| 2 / 4    | 5V     | Power       | Pi, Display, Camera (via buck) |
+| 2 / 4    | 5V     | Power       | Pi, 7" Display (via buck)   |
 | 3        | GPIO 2 | I²C SDA     | MPU-6050, VL53L1X           |
 | 5        | GPIO 3 | I²C SCL     | MPU-6050, VL53L1X           |
 | 6 / 9    | GND    | Ground      | Common ground (all devices) |
@@ -83,43 +85,80 @@ flowchart LR
 
 ---
 
-## Software Stack
+## 🔋 Power & Buck Setup (DROK LCD/USB)
 
-- **OS**: Raspberry Pi OS Lite (Bullseye)
-- **Control**: `pigpio` (hardware PWM) or `PCA9685` (optional driver)
-- **Computer Vision**: OpenCV (lane detection, color segmentation)
-- **AI Models**: TensorFlow Lite (SSD MobileNet / YOLOv8-nano INT8)
-- **Sensor Drivers**:
-  - `smbus2` for I²C sensors (MPU-6050, VL53L1X)
-  - `picamera2` for camera input
-- **UI**: Python + Pygame / Tkinter on 7" HDMI screen
+1. Connect LiPo → **Fuse (30–40 A)** → **Master switch** → DROK **IN+/-** and ESC power.
+2. With LiPo connected and **Pi disconnected**, set DROK output to **5.15–5.20 V**.
+3. Wire DROK **OUT+/-** to the Pi 5 **5V/GND header** using **18–20 AWG**; keep leads short.
+4. Add a **470–1000 µF low-ESR capacitor** across 5V/GND near the Pi header.
+5. Use the DROK’s **USB-A** to power the **7" display** (USB), and HDMI for video.
+6. **Prefer header power for the Pi** (some non-PD USB-C feeds can limit current).
+7. Load test: camera + display + CV loop; if you see undervoltage, shorten/thicken leads or bump to **5.20 V** measured **at the Pi**.
 
 ---
 
+## 🔌 Charging the 2S LiPo (Compact Charger)
+
+1. Let the pack cool; inspect for puffing/damage. If damaged → **do not charge**.
+2. Plug the **JST-XH 3-pin balance lead** into the charger’s **2S port**.
+3. Place the pack in a **LiPo safe bag** on a non-flammable surface.
+4. Start charge (most compact chargers are fixed ~0.8–1.5 A). Expect ~1–2.5 h.
+5. Fully charged = **4.20 V/cell (8.40 V total)**; cells within ~0.01–0.03 V of each other.
+
+### Storage & safety
+- If not using for >48 h, leave near **3.8 V/cell (~7.6 V total)**.
+- Never leave charging unattended.
+- Keep away from flammables; use a LiPo bag.
+
+### While driving (protect the pack)
+- Set ESC **Low Voltage Cutoff** for **2S** (≈**3.2–3.4 V/cell under load**).
+- Stop when resting voltage rebounds to **≈3.6–3.7 V/cell** (7.2–7.4 V total).
+
+---
+## 🧠 Software Stack (CPU-only)
+
+- **OS**: Raspberry Pi OS (Bookworm)
+- **Control**: `pigpio` (hardware PWM) or `PCA9685` (optional driver)
+- **Computer Vision**: OpenCV (lane detection, HSV traffic light detection)
+- **AI Models** (optional): TensorFlow Lite (tiny SSD/YOLO INT8 with XNNPACK)
+- **Sensor Drivers**:
+  - `smbus2` for I²C sensors (MPU-6050, VL53L1X)
+  - `picamera2` for camera input
+- **UI**: Python + Pygame/Tkinter on 7" HDMI screen
+
+### Pi 5 setup (quick)
+
+```bash
+sudo apt update
+sudo apt install -y python3-pip python3-opencv python3-smbus i2c-tools \
+                    pigpio python3-pigpio python3-picamera2 libatlas-base-dev
+sudo systemctl enable pigpio && sudo systemctl start pigpio
+
+pip3 install --upgrade pip
+pip3 install tflite-runtime smbus2 numpy
+# Optional trackers
+pip3 install filterpy onnxruntime
+```
 ## Basic Control Loop (pseudo-code)
 
 ```python
 while True:
     frame = camera.get_frame()
     lane_offset = detect_lane(frame)
-    detections = detect_objects(frame)
+    detections = detect_objects(frame)  # run sparsely
 
-    # Default forward motion
     throttle = BASE_SPEED
     steer = pid_control(lane_offset)
 
-    # Stop sign logic
     if 'stop_sign' in detections and close_enough(detections['stop_sign']):
         throttle = 0
 
-    # Traffic light logic
-    if 'traffic_light' in detections:
-        if detections['traffic_light'] == 'red':
-            throttle = 0
+    tl = detections.get('traffic_light')
+    if tl == 'red':
+        throttle = 0
 
-    # Obstacle detection
-    distance = tof_sensor.read()
-    if distance < SAFE_DIST:
+    distance = tof.read_mm()
+    if distance is not None and distance < SAFE_DIST_MM:
         throttle = 0
 
     send_pwm(steer, throttle)
@@ -129,7 +168,7 @@ while True:
 
 ## Features
 - Manual RC mode (RadioLink)  
-- Autonomous mode (AI vision + sensors)  
+- Autonomous mode (OpenCV + sensors)  
 - Lane following with PID control  
 - Stop sign & traffic light detection  
 - Obstacle avoidance (ToF sensor)  
